@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a4e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caremed">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Caremed Production</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="setup-screen" class="screen active">
+  <div class="setup-wrap">
+    <div class="setup-logo">CQ</div>
+    <h1 class="setup-title">Caremed Production</h1>
+    <p class="setup-sub">Connect to your Supabase database to get started</p>
+    <div class="setup-card">
+      <div class="field"><label>Supabase Project URL</label><input type="url" id="sb-url" placeholder="https://xxxx.supabase.co"></div>
+      <div class="field"><label>Supabase Anon Key</label><input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIs..."></div>
+      <div class="field"><label>Your name</label><input type="text" id="setup-name" placeholder="e.g. John Smith"></div>
+      <div class="field"><label>Role</label>
+        <select id="setup-role">
+          <option value="operator">Operator</option>
+          <option value="supervisor">Supervisor</option>
+        </select>
+      </div>
+      <button class="btn-primary full" onclick="App.connect()">Connect & Continue</button>
+      <p class="setup-hint">See <strong>SETUP.md</strong> for step-by-step Supabase instructions</p>
+    </div>
+  </div>
+</div>
+
+<div id="main-screen" class="screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-logo">CQ</div>
+      <div>
+        <div class="topbar-title">Caremed Production</div>
+        <div class="topbar-sub" id="topbar-user">—</div>
+      </div>
+      <button class="icon-btn" onclick="App.showSettings()" aria-label="Settings">⚙</button>
+    </div>
+    <div class="tab-bar">
+      <button class="tab active" data-tab="dashboard" onclick="App.switchTab('dashboard')">Dashboard</button>
+      <button class="tab" data-tab="scheduler" onclick="App.switchTab('scheduler')">Scheduler</button>
+      <button class="tab" data-tab="builds" onclick="App.switchTab('builds')">Builds</button>
+      <button class="tab" data-tab="records" onclick="App.switchTab('records')">Records</button>
+    </div>
+  </div>
+
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="page-pad">
+      <div class="section-title">Today's production</div>
+      <div id="today-stats" class="stat-grid"></div>
+      <div class="section-title mt">Live builds</div>
+      <div id="live-builds"></div>
+      <div class="section-title mt">Today's schedule</div>
+      <div id="today-schedule"></div>
+    </div>
+  </div>
+
+  <div id="tab-scheduler" class="tab-content">
+    <div class="page-pad">
+      <div class="row-between">
+        <div class="section-title">Schedule</div>
+        <button class="btn-primary sm" onclick="Scheduler.showCreate()" id="new-job-btn" style="display:none">+ New job</button>
+      </div>
+      <div id="schedule-week"></div>
+    </div>
+  </div>
+
+  <div id="tab-builds" class="tab-content">
+    <div class="page-pad">
+      <div class="section-title">Active builds</div>
+      <div id="my-builds"></div>
+      <div class="section-title mt">Completed today</div>
+      <div id="completed-builds"></div>
+    </div>
+  </div>
+
+  <div id="tab-records" class="tab-content">
+    <div class="page-pad">
+      <div class="section-title">QC records</div>
+      <div class="search-wrap"><input type="search" id="rec-search" placeholder="Search by serial, job, operator..." oninput="Records.search(this.value)"></div>
+      <div id="records-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BUILD DETAIL / STAGE TRACKER -->
+<div id="build-screen" class="screen slide-up">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <button class="back-btn" onclick="App.closeScreen('build-screen')">‹ Back</button>
+      <div>
+        <div class="topbar-title" id="build-screen-title">Build</div>
+        <div class="topbar-sub" id="build-screen-sub">—</div>
+      </div>
+      <span class="status-pill" id="build-status-pill"></span>
+    </div>
+  </div>
+  <div class="page-pad" id="build-detail-body"></div>
+</div>
+
+<!-- QC FORM SCREEN -->
+<div id="form-screen" class="screen slide-up">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <button class="back-btn" onclick="App.closeScreen('form-screen')">‹ Back</button>
+      <div>
+        <div class="topbar-title" id="form-screen-title">QC Form</div>
+        <div class="topbar-sub" id="form-screen-sub">—</div>
+      </div>
+    </div>
+  </div>
+  <div id="form-body"></div>
+  <div class="footer-bar">
+    <button class="footer-btn" onclick="QCForm.export()">↓ Export</button>
+    <button class="footer-btn primary" id="form-submit-btn" onclick="QCForm.submit()">Submit</button>
+  </div>
+</div>
+
+<!-- CREATE JOB MODAL -->
+<div id="job-modal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <div class="modal-title">Schedule new job</div>
+    <div class="field"><label>Work order</label><input type="text" id="nj-wo" placeholder="WO-2045"></div>
+    <div class="field"><label>Model</label>
+      <select id="nj-model">
+        <option>Caremed Standard</option>
+        <option>Caremed HD</option>
+        <option>Caremed Comfort</option>
+        <option>Caremed Bariatric</option>
+      </select>
+    </div>
+    <div class="field"><label>Serial no.</label><input type="text" id="nj-serial" placeholder="SN-00123"></div>
+    <div class="field"><label>Assigned operator</label><input type="text" id="nj-operator" placeholder="Operator name"></div>
+    <div class="field"><label>Scheduled date</label><input type="date" id="nj-date"></div>
+    <div class="field"><label>Target completion (days)</label><input type="number" id="nj-target" value="1" min="1" max="30"></div>
+    <div class="field"><label>Notes</label><textarea id="nj-notes" placeholder="Any special instructions..." rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('job-modal').style.display='none'">Cancel</button>
+      <button class="btn-primary" onclick="Scheduler.createJob()">Create job</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="settings-modal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-card">
+    <div class="modal-title">Settings</div>
+    <div class="field"><label>Your name</label><input type="text" id="settings-name"></div>
+    <div class="field"><label>Role</label>
+      <select id="settings-role">
+        <option value="operator">Operator</option>
+        <option value="supervisor">Supervisor</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('settings-modal').style.display='none'">Close</button>
+      <button class="btn-primary" onclick="App.saveSettings()">Save</button>
+    </div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <button class="btn-secondary full" onclick="App.disconnect()">Disconnect / change database</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="offline-bar" id="offline-bar">⚠ Offline — changes will sync when reconnected</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+<script src="js/scheduler.js"></script>
+<script src="js/build-tracker.js"></script>
+<script src="js/qc-form.js"></script>
+<script src="js/records.js"></script>
+<script src="js/forms/assembly.js"></script>
+</body>
+</html>
